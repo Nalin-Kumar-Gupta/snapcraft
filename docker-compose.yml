@@ -1,0 +1,62 @@
+# Docker Compose for Snapcraft local development
+
+version: '3.8'
+
+services:
+  snapcraft-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snapcraft-dev
+    volumes:
+      # Mount the source code for live editing
+      - .:/home/snapcraft/snapcraft
+      # Mount home directory for persistent settings
+      - snapcraft-home:/home/snapcraft
+      # Mount cache directories for performance
+      - snapcraft-cache:/home/snapcraft/.cache
+      # Mount uv cache for faster package installs
+      - uv-cache:/home/snapcraft/.cache/uv
+    environment:
+      # Development environment
+      - SNAPCRAFT_ENABLE_DEVELOPER_DEBUG=1
+      - PYTHONPATH=/home/snapcraft/snapcraft
+      - PATH=/home/snapcraft/snapcraft/.venv/bin:$PATH
+    working_dir: /home/snapcraft/snapcraft
+    stdin_open: true
+    tty: true
+    # Network mode for potential snap operations
+    network_mode: bridge
+    # Privileged mode for snap operations (if needed)
+    # privileged: true
+    
+  # Optional: Documentation server
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: snapcraft-docs
+    volumes:
+      - .:/home/snapcraft/snapcraft
+      - snapcraft-home:/home/snapcraft
+    ports:
+      - "8000:8000"
+    working_dir: /home/snapcraft/snapcraft
+    command: >
+      bash -c "make docs && 
+               cd docs/_build/html && 
+               python3 -m http.server 8000 --bind 0.0.0.0"
+    profiles:
+      - docs
+
+volumes:
+  snapcraft-home:
+    driver: local
+  snapcraft-cache:
+    driver: local
+  uv-cache:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
