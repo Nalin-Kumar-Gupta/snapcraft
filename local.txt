@@ -1,0 +1,248 @@
+# Snapcraft Development Setup with Multipass 🚀
+
+Here's the complete step-by-step guide for setting up Snapcraft development environment using Multipass:
+
+## Step 1: Install Multipass
+
+### On macOS:
+```bash
+brew install multipass
+```
+
+### On Linux (Ubuntu/Debian):
+```bash
+sudo snap install multipass
+```
+
+### On Windows:
+Download from: https://multipass.run/download/windows
+Or use Chocolatey: `choco install multipass`
+
+## Step 2: Create Development VM
+
+```bash
+# Create Ubuntu VM with generous resources
+multipass launch --name snapcraft-dev --disk 25G --memory 6G --cpus 4 22.04
+
+# Check it's running
+multipass list
+```
+
+## Step 3: Enter the VM and Update
+
+```bash
+# Shell into the VM
+multipass shell snapcraft-dev
+
+# Update the system
+sudo apt update && sudo apt upgrade -y
+```
+
+## Step 4: Install Development Dependencies
+
+```bash
+# Install essential build tools
+sudo apt install -y \
+    git \
+    build-essential \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    curl \
+    wget \
+    snapd \
+    lxd \
+    squashfs-tools
+
+# Install snapcraft itself (we'll replace this with dev version later)
+sudo snap install snapcraft --classic
+
+# Install additional tools that Snapcraft might need
+sudo snap install multipass
+sudo snap install lxd
+```
+
+## Step 5: Set up LXD (for building snaps)
+
+```bash
+# Initialize LXD (accept defaults for most prompts)
+sudo lxd init --auto
+
+# Add your user to lxd group
+sudo usermod -a -G lxd $USER
+
+# Log out and back in for group changes to take effect
+exit
+multipass shell snapcraft-dev
+```
+
+## Step 6: Clone Snapcraft Repository
+
+```bash
+# Clone the repository
+cd ~
+git clone https://github.com/canonical/snapcraft.git
+cd snapcraft
+
+# Set up your git identity (replace with your details)
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+## Step 7: Set up Python Development Environment
+
+```bash
+# Install uv (modern Python package manager - Snapcraft uses this)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc
+
+# OR if uv install fails, use pip:
+# python3 -m pip install --user uv
+
+# Create virtual environment and install dependencies
+cd ~/snapcraft
+uv venv
+source .venv/bin/activate
+
+# Install Snapcraft in development mode with all dependencies
+uv pip install -e ".[dev,docs,lint,types]"
+```
+
+## Step 8: Install Additional Walmart-specific Dependencies
+
+Since you're at Walmart, install with the internal PyPI:
+
+```bash
+# Install with Walmart's internal PyPI
+uv pip install -e ".[dev,docs,lint,types]" \
+    --index-url https://pypi.ci.artifacts.walmart.com/artifactory/api/pypi/external-pypi/simple \
+    --allow-insecure-host pypi.ci.artifacts.walmart.com
+```
+
+## Step 9: Verify Installation
+
+```bash
+# Check that snapcraft command works
+which snapcraft
+snapcraft --version
+
+# Check your development version works
+cd ~/snapcraft
+python -m snapcraft --version
+
+# Run a quick test
+python -m pytest tests/unit/test_application.py -v
+```
+
+## Step 10: Set up Development Workflow
+
+```bash
+# Create an alias for easy development
+echo 'alias snapcraft-dev="cd ~/snapcraft && source .venv/bin/activate && python -m snapcraft"' >> ~/.bashrc
+source ~/.bashrc
+
+# Test the alias
+snapcraft-dev --help
+```
+
+## Step 11: Test Building a Simple Snap
+
+```bash
+# Create a test directory
+mkdir ~/test-snap
+cd ~/test-snap
+
+# Create a simple snapcraft.yaml
+cat > snapcraft.yaml << 'EOF'
+name: hello-test
+version: '1.0'
+summary: Test snap for development
+description: A simple test snap
+
+base: core24
+confinement: strict
+
+apps:
+  hello-test:
+    command: bin/echo "Hello from test snap!"
+
+parts:
+  hello:
+    plugin: nil
+    override-build: |
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+      echo '#!/bin/bash' > $SNAPCRAFT_PART_INSTALL/bin/echo
+      echo 'echo "$@"' >> $SNAPCRAFT_PART_INSTALL/bin/echo
+      chmod +x $SNAPCRAFT_PART_INSTALL/bin/echo
+EOF
+
+# Build with your development version
+cd ~/snapcraft
+source .venv/bin/activate
+python -m snapcraft pack ~/test-snap
+
+# If successful, you should see a .snap file created
+ls ~/test-snap/*.snap
+```
+
+## Step 12: Set up IDE Access (Optional)
+
+### Option A: VS Code Remote Development
+1. Install "Remote-SSH" extension in VS Code
+2. Get VM IP: `multipass info snapcraft-dev`
+3. Add SSH config in VS Code to connect
+
+### Option B: Mount directory to host
+```bash
+# Exit VM first
+exit
+
+# Mount the snapcraft directory to your host
+multipass mount ~/snapcraft snapcraft-dev:/home/ubuntu/snapcraft-host
+
+# Now you can edit on host, test in VM
+```
+
+## Step 13: Daily Development Workflow
+
+```bash
+# Start your development session
+multipass shell snapcraft-dev
+cd ~/snapcraft
+source .venv/bin/activate
+
+# Run tests
+python -m pytest tests/unit/ -v
+
+# Run linting
+python -m ruff check .
+python -m mypy snapcraft
+
+# Run your changes
+python -m snapcraft --help
+```
+
+## Troubleshooting Tips 🔧
+
+1. **If VM runs out of space**: `multipass set local.snapcraft-dev.disk=30G`
+2. **If you need to restart**: `multipass restart snapcraft-dev`
+3. **If snap building fails**: Check LXD is working: `lxc list`
+4. **For proxy issues** (at Walmart): Set these in the VM:
+   ```bash
+   export HTTP_PROXY=http://sysproxy.wal-mart.com:8080
+   export HTTPS_PROXY=http://sysproxy.wal-mart.com:8080
+   ```
+
+## Cleanup (when done)
+```bash
+# Stop the VM
+multipass stop snapcraft-dev
+
+# Delete it completely
+multipass delete snapcraft-dev
+multipass purge
+```
+
+That's it! You'll have a complete Snapcraft development environment that's isolated, works properly with snaps, and gives you the full Ubuntu experience for testing. 🐶
+
+Let me know how it goes!
