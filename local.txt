@@ -51,8 +51,8 @@ sudo apt install -y \
     curl \
     wget \
     snapd \
-    lxd \
     squashfs-tools
+
 
 # Install snapcraft itself (we'll replace this with dev version later)
 sudo snap install snapcraft --classic
@@ -81,7 +81,7 @@ multipass shell snapcraft-dev
 ```bash
 # Clone the repository
 cd ~
-git clone https://github.com/canonical/snapcraft.git
+git clone https://github.com/Nalin-Kumar-Gupta/snapcraft.git
 cd snapcraft
 
 # Set up your git identity (replace with your details)
@@ -114,9 +114,7 @@ Since you're at Walmart, install with the internal PyPI:
 
 ```bash
 # Install with Walmart's internal PyPI
-uv pip install -e ".[dev,docs,lint,types]" \
-    --index-url https://pypi.ci.artifacts.walmart.com/artifactory/api/pypi/external-pypi/simple \
-    --allow-insecure-host pypi.ci.artifacts.walmart.com
+uv pip install -e ".[dev,docs,lint,types]"
 ```
 
 ## Step 9: Verify Installation
